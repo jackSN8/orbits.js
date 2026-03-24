@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Earth's Crust Elements — From Conception to Now</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;600&family=JetBrains+Mono:wght@300;400&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0a0b0f;
+    color: #c8cad0;
+    font-family: 'Crimson Pro', Georgia, serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Subtle grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  .header {
+    text-align: center;
+    padding: 32px 40px 8px;
+    position: relative;
+  }
+
+  .header h1 {
+    font-size: 28px;
+    font-weight: 300;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: #e8e4df;
+    margin-bottom: 6px;
+    background: linear-gradient(90deg, #b8a88a, #e8e4df, #8ab8c4);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .header .subtitle {
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 300;
+    color: #666b78;
+    letter-spacing: 1.5px;
+  }
+
+  .column-labels {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 100px;
+    margin-top: 4px;
+  }
+
+  .col-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 2px;
+  }
+
+  .col-label.origin {
+    color: #d4a87c;
+    border-bottom: 1px solid #d4a87c33;
+  }
+  .col-label.midstage {
+    color: #7cb8a8;
+    border-bottom: 1px solid #7cb8a833;
+  }
+  .col-label.material {
+    color: #a8b4d4;
+    border-bottom: 1px solid #a8b4d433;
+  }
+
+  #sankey-chart {
+    width: 100%;
+    height: calc(100vh - 110px);
+    min-height: 900px;
+  }
+
+  .legend-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0; right: 0;
+    background: linear-gradient(180deg, transparent, #0a0b0f 40%);
+    padding: 30px 40px 14px;
+    display: flex;
+    justify-content: center;
+    gap: 28px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: #555;
+    z-index: 10;
+  }
+
+  .legend-bar span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .legend-bar .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Earth's Crust — From Stellar Origin to Present</h1>
+  <div class="subtitle">Stellar nucleosynthesis → Pre-Earth reservoirs → Present-day crustal materials</div>
+</div>
+
+<div class="column-labels">
+  <span class="col-label origin">★ Stellar Origins</span>
+  <span class="col-label midstage">◆ Pre-Earth Reservoirs</span>
+  <span class="col-label material">● Crustal Materials</span>
+</div>
+
+<div id="sankey-chart"></div>
+
+<div class="legend-bar">
+  <span><span class="dot" style="background:#d4a87c"></span> STELLAR ORIGIN</span>
+  <span><span class="dot" style="background:#7cb8a8"></span> PRE-EARTH PHASE</span>
+  <span><span class="dot" style="background:#a8b4d4"></span> PRESENT CRUST</span>
+  <span style="color:#444">Flow width ∝ mass fraction (%)</span>
+</div>
+
+<script>
+// ── Data from config ──
+const origins = [
+  "Big Bang nucleosynthesis",
+  "Core-collapse supernovae (massive stars)",
+  "AGB stars (s-process winds)",
+  "Type Ia supernovae",
+  "r-process events (NS mergers / rare SNe)",
+  "Cosmic-ray spallation",
+];
+
+const midstages = [
+  "Refractory condensates (CAI-like)",
+  "Silicate dust (olivine/pyroxene-rich)",
+  "Fe–Ni metal grains",
+  "Sulfide grains",
+  "Oxide grains",
+  "Carbonaceous refractory organics",
+  "Water ice",
+  "Volatile C/N/O gases (CO, CO₂, N₂…)",
+  "Hydrated/altered planetesimal material",
+  "Presolar trace grains",
+];
+
+const materials = [
+  "Silicate minerals (quartz, feldspars, etc.)",
+  "Aluminosilicate clays / micas",
+  "Oxides (hematite, magnetite, rutile…)",
+  "Carbonates (calcite, dolomite)",
+  "Phosphates (apatite etc.)",
+  "Sulfides / sulfates",
+  "Halides / salts",
+  "Water + ice + hydrated phases",
+  "Organic matter + atm. gases",
+  "Trace ore / accessory minerals",
+];
+
+// Internal keys matching config
+const midKeys = [
+  "Refractory condensates (CAI-like)",
+  "Silicate dust (olivine/pyroxene-rich)",
+  "Fe-Ni metal grains",
+  "Sulfide grains",
+  "Oxide grains",
+  "Carbonaceous refractory organics",
+  "Water ice",
+  "Volatile C/N/O gases (CO, CO2, N2, etc.)",
+  "Hydrated/altered planetesimal material",
+  "Presolar trace grains",
+];
+
+const matKeys = [
+  "Silicate minerals (quartz, feldspars, pyroxenes, olivine)",
+  "Aluminosilicate clays/micas",
+  "Oxides (hematite, magnetite, rutile, etc.)",
+  "Carbonates (calcite, dolomite)",
+  "Phosphates (apatite etc.)",
+  "Sulfides / sulfates",
+  "Halides / salts",
+  "Water + ice + hydrated phases",
+  "Organic matter + atmospheric gases in crustal system",
+  "Trace ore minerals / accessory minerals",
+];
+
+const originKeys = [
+  "Big Bang nucleosynthesis",
+  "Core-collapse supernovae (massive stars)",
+  "AGB stars (s-process winds)",
+  "Type Ia supernovae",
+  "r-process events (NS mergers / rare SNe)",
+  "Cosmic-ray spallation",
+];
+
+const midstage_amt = {
+  "Refractory condensates (CAI-like)": 4.2,
+  "Silicate dust (olivine/pyroxene-rich)": 55.0,
+  "Fe-Ni metal grains": 6.0,
+  "Sulfide grains": 2.2,
+  "Oxide grains": 8.0,
+  "Carbonaceous refractory organics": 1.4,
+  "Water ice": 5.0,
+  "Volatile C/N/O gases (CO, CO2, N2, etc.)": 4.3,
+  "Hydrated/altered planetesimal material": 13.6,
+  "Presolar trace grains": 0.2,
+};
+
+const origin_to_mid = {
+  "Refractory condensates (CAI-like)": {
+    "Core-collapse supernovae (massive stars)": 0.55,
+    "Type Ia supernovae": 0.10,
+    "AGB stars (s-process winds)": 0.15,
+    "r-process events (NS mergers / rare SNe)": 0.20,
+  },
+  "Silicate dust (olivine/pyroxene-rich)": {
+    "Core-collapse supernovae (massive stars)": 0.82,
+    "Type Ia supernovae": 0.08,
+    "AGB stars (s-process winds)": 0.10,
+  },
+  "Fe-Ni metal grains": {
+    "Type Ia supernovae": 0.60,
+    "Core-collapse supernovae (massive stars)": 0.35,
+    "AGB stars (s-process winds)": 0.05,
+  },
+  "Sulfide grains": {
+    "Core-collapse supernovae (massive stars)": 0.65,
+    "Type Ia supernovae": 0.15,
+    "AGB stars (s-process winds)": 0.10,
+    "r-process events (NS mergers / rare SNe)": 0.10,
+  },
+  "Oxide grains": {
+    "Core-collapse supernovae (massive stars)": 0.70,
+    "Type Ia supernovae": 0.10,
+    "AGB stars (s-process winds)": 0.10,
+    "r-process events (NS mergers / rare SNe)": 0.10,
+  },
+  "Carbonaceous refractory organics": {
+    "AGB stars (s-process winds)": 0.45,
+    "Core-collapse supernovae (massive stars)": 0.30,
+    "Big Bang nucleosynthesis": 0.15,
+    "Cosmic-ray spallation": 0.10,
+  },
+  "Water ice": {
+    "Big Bang nucleosynthesis": 0.25,
+    "Core-collapse supernovae (massive stars)": 0.60,
+    "AGB stars (s-process winds)": 0.15,
+  },
+  "Volatile C/N/O gases (CO, CO2, N2, etc.)": {
+    "Core-collapse supernovae (massive stars)": 0.50,
+    "AGB stars (s-process winds)": 0.30,
+    "Big Bang nucleosynthesis": 0.15,
+    "Cosmic-ray spallation": 0.05,
+  },
+  "Hydrated/altered planetesimal material": {
+    "Core-collapse supernovae (massive stars)": 0.60,
+    "AGB stars (s-process winds)": 0.15,
+    "Type Ia supernovae": 0.10,
+    "Big Bang nucleosynthesis": 0.10,
+    "r-process events (NS mergers / rare SNe)": 0.05,
+  },
+  "Presolar trace grains": {
+    "AGB stars (s-process winds)": 0.45,
+    "r-process events (NS mergers / rare SNe)": 0.35,
+    "Core-collapse supernovae (massive stars)": 0.15,
+    "Type Ia supernovae": 0.05,
+  },
+};
+
+const mid_to_material = {
+  "Refractory condensates (CAI-like)": {
+    "Phosphates (apatite etc.)": 0.2,
+    "Oxides (hematite, magnetite, rutile, etc.)": 1.0,
+    "Trace ore minerals / accessory minerals": 2.2,
+    "Silicate minerals (quartz, feldspars, pyroxenes, olivine)": 0.8,
+  },
+  "Silicate dust (olivine/pyroxene-rich)": {
+    "Silicate minerals (quartz, feldspars, pyroxenes, olivine)": 45.0,
+    "Aluminosilicate clays/micas": 5.0,
+    "Oxides (hematite, magnetite, rutile, etc.)": 2.0,
+    "Carbonates (calcite, dolomite)": 1.0,
+    "Trace ore minerals / accessory minerals": 2.0,
+  },
+  "Fe-Ni metal grains": {
+    "Oxides (hematite, magnetite, rutile, etc.)": 3.5,
+    "Sulfides / sulfates": 1.2,
+    "Trace ore minerals / accessory minerals": 1.3,
+  },
+  "Sulfide grains": {
+    "Sulfides / sulfates": 1.7,
+    "Trace ore minerals / accessory minerals": 0.4,
+    "Halides / salts": 0.1,
+  },
+  "Oxide grains": {
+    "Oxides (hematite, magnetite, rutile, etc.)": 4.8,
+    "Silicate minerals (quartz, feldspars, pyroxenes, olivine)": 1.2,
+    "Trace ore minerals / accessory minerals": 2.0,
+  },
+  "Carbonaceous refractory organics": {
+    "Organic matter + atmospheric gases in crustal system": 0.9,
+    "Carbonates (calcite, dolomite)": 0.3,
+    "Trace ore minerals / accessory minerals": 0.2,
+  },
+  "Water ice": {
+    "Water + ice + hydrated phases": 3.6,
+    "Carbonates (calcite, dolomite)": 0.5,
+    "Halides / salts": 0.4,
+    "Aluminosilicate clays/micas": 0.5,
+  },
+  "Volatile C/N/O gases (CO, CO2, N2, etc.)": {
+    "Organic matter + atmospheric gases in crustal system": 1.0,
+    "Carbonates (calcite, dolomite)": 1.8,
+    "Water + ice + hydrated phases": 0.6,
+    "Halides / salts": 0.2,
+    "Trace ore minerals / accessory minerals": 0.7,
+  },
+  "Hydrated/altered planetesimal material": {
+    "Aluminosilicate clays/micas": 4.2,
+    "Water + ice + hydrated phases": 1.3,
+    "Carbonates (calcite, dolomite)": 1.4,
+    "Silicate minerals (quartz, feldspars, pyroxenes, olivine)": 3.0,
+    "Sulfides / sulfates": 0.6,
+    "Halides / salts": 0.3,
+    "Phosphates (apatite etc.)": 0.3,
+    "Trace ore minerals / accessory minerals": 2.5,
+  },
+  "Presolar trace grains": {
+    "Trace ore minerals / accessory minerals": 0.16,
+    "Oxides (hematite, magnetite, rutile, etc.)": 0.02,
+    "Sulfides / sulfates": 0.01,
+    "Organic matter + atmospheric gases in crustal system": 0.01,
+  },
+};
+
+// ── Build Sankey node & link arrays ──
+const allLabels = [...origins, ...midstages, ...materials];
+const nO = origins.length, nM = midstages.length;
+
+// Map keys to indices
+const originIdx = {};  originKeys.forEach((k,i) => originIdx[k] = i);
+const midIdx = {};     midKeys.forEach((k,i) => midIdx[k] = i + nO);
+const matIdx = {};     matKeys.forEach((k,i) => matIdx[k] = i + nO + nM);
+
+const linkSource = [], linkTarget = [], linkValue = [], linkColor = [];
+
+// Origin colors (warm ambers/golds)
+const originColors = [
+  'rgba(180,150,100,0.35)',  // Big Bang
+  'rgba(220,160,80,0.35)',   // Core-collapse
+  'rgba(190,130,90,0.35)',   // AGB
+  'rgba(200,140,110,0.35)',  // Type Ia
+  'rgba(170,120,140,0.35)',  // r-process
+  'rgba(160,140,120,0.35)',  // Cosmic-ray
+];
+
+// Mid colors (teals/greens)
+const midColors = [
+  'rgba(100,180,160,0.30)',
+  'rgba(90,170,140,0.30)',
+  'rgba(110,160,150,0.30)',
+  'rgba(100,150,140,0.30)',
+  'rgba(120,170,160,0.30)',
+  'rgba(80,160,130,0.30)',
+  'rgba(90,150,170,0.30)',
+  'rgba(100,140,160,0.30)',
+  'rgba(110,160,140,0.30)',
+  'rgba(80,140,150,0.30)',
+];
+
+// Origin → Midstage links
+for (const midKey of midKeys) {
+  const amt = midstage_amt[midKey];
+  const fracs = origin_to_mid[midKey];
+  for (const [origKey, frac] of Object.entries(fracs)) {
+    const oI = originIdx[origKey];
+    linkSource.push(oI);
+    linkTarget.push(midIdx[midKey]);
+    linkValue.push(+(amt * frac).toFixed(3));
+    linkColor.push(originColors[oI]);
+  }
+}
+
+// Midstage → Material links
+for (const midKey of midKeys) {
+  const mats = mid_to_material[midKey];
+  const mI = midIdx[midKey] - nO; // 0-based within midstages
+  for (const [matKey, val] of Object.entries(mats)) {
+    linkSource.push(midIdx[midKey]);
+    linkTarget.push(matIdx[matKey]);
+    linkValue.push(val);
+    linkColor.push(midColors[mI]);
+  }
+}
+
+// ── Node colors ──
+const nodeColors = [
+  // Origins — warm amber/gold tones
+  '#c49a5c','#d4a04a','#b8864e','#c48a5e','#a87888','#9a8a78',
+  // Midstages — teal/green tones
+  '#5aaa90','#4a9a7a','#6a9888','#5a8a80','#6a9a90','#3a9070',
+  '#4a88a0','#5a8098','#6a9880','#3a8088',
+  // Materials — blue/slate tones
+  '#7a90c0','#6a88b8','#8898c8','#6a80b0','#7888b8','#6078a8',
+  '#5870a0','#7080b8','#6878a8','#8090c0',
+];
+
+const nodeBorderColors = nodeColors.map(c => {
+  // Lighten for border
+  return c.replace(/[0-9a-f]{2}/gi, (m,i) => {
+    const v = Math.min(255, parseInt(m,16) + 40);
+    return v.toString(16).padStart(2,'0');
+  });
+});
+
+// ── Plotly Sankey ──
+const data = [{
+  type: 'sankey',
+  orientation: 'h',
+  arrangement: 'snap',
+  node: {
+    pad: 16,
+    thickness: 18,
+    line: { color: nodeBorderColors, width: 0.5 },
+    label: allLabels,
+    color: nodeColors,
+    hovertemplate: '<b>%{label}</b><br>Total flow: %{value:.1f}%<extra></extra>',
+  },
+  link: {
+    source: linkSource,
+    target: linkTarget,
+    value: linkValue,
+    color: linkColor,
+    hovertemplate: '%{source.label}<br>→ %{target.label}<br><b>%{value:.2f}%</b><extra></extra>',
+  },
+}];
+
+const layout = {
+  font: {
+    family: 'Crimson Pro, Georgia, serif',
+    size: 12,
+    color: '#9a9da6',
+  },
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor: 'rgba(0,0,0,0)',
+  margin: { l: 10, r: 10, t: 10, b: 50 },
+  hoverlabel: {
+    bgcolor: '#1a1b22',
+    bordercolor: '#333',
+    font: { family: 'JetBrains Mono, monospace', size: 11, color: '#c8cad0' },
+  },
+};
+
+const config = {
+  displayModeBar: false,
+  responsive: true,
+};
+
+Plotly.newPlot('sankey-chart', data, layout, config);
+</script>
+</body>
+</html>
